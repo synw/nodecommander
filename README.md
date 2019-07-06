@@ -1,6 +1,6 @@
 # Node Commander
 
- Network nodes communication in Dart. Send commands to nodes and get the responses.
+ Network nodes communication in Dart. Send commands to nodes and get the responses. Powered by [Isohttpd](https://github.com/synw/isohttpd)
 
 ## Example
 
