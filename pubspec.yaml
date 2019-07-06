@@ -1,0 +1,13 @@
+name: nodecommander
+description: A new Flutter project.
+version: 0.0.1
+
+environment:
+  sdk: ">=2.2.2 <3.0.0"
+
+dependencies:
+  uuid: ^2.0.2
+  dio: ^2.1.10
+  meta: ^1.1.6
+  isohttpd:
+    path: ../../dart/isohttpd
