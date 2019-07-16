@@ -12,7 +12,8 @@ enum CommandStatus {
   executionError
 }
 
-typedef Future<NodeCommand> CommandExecutor(NodeCommand command);
+typedef Future<NodeCommand> CommandExecutor(
+    NodeCommand command, List<dynamic> parameters);
 
 class ConnectedSoldierNode {
   ConnectedSoldierNode(
@@ -37,15 +38,15 @@ class NodeCommand {
   String id;
   final String name;
   String from;
-  dynamic arguments;
+  List<dynamic> arguments;
   Map<String, dynamic> payload;
   dynamic error;
   CommandStatus status;
   CommandExecutor executor;
   bool isExecuted;
 
-  Future<NodeCommand> execute(NodeCommand cmd) async {
-    final NodeCommand returnCmd = await executor(cmd);
+  Future<NodeCommand> execute(NodeCommand cmd, List<dynamic> parameters) async {
+    final NodeCommand returnCmd = await executor(cmd, parameters);
     returnCmd.isExecuted = true;
     return returnCmd;
   }
@@ -60,7 +61,8 @@ class NodeCommand {
         this.isExecuted = false {
     if (data.containsKey("error") == true) this.error = error.toString();
     if (data.containsKey("arguments") == true)
-      this.arguments = data["arguments"];
+      this.arguments =
+          json.decode(data["arguments"].toString()) as List<dynamic>;
     if (data.containsKey("payload") == true) {
       this.payload =
           json.decode(data["payload"].toString()) as Map<String, dynamic>;

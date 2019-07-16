@@ -5,7 +5,6 @@ import 'package:isohttpd/isohttpd.dart';
 import 'package:dio/dio.dart';
 import 'package:meta/meta.dart';
 import 'command/model.dart';
-//import 'command/internal/commands.dart';
 import 'http_handlers.dart';
 import 'desktop/host.dart';
 
@@ -59,7 +58,7 @@ class CommanderNode extends BaseCommanderNode {
   Future<void> init() async {
     String _host = host;
     if (host == null) _host = await getHost();
-    await initCommanderNode(_host);
+    await _initCommanderNode(_host);
   }
 }
 
@@ -68,11 +67,11 @@ abstract class BaseCommanderNode extends BaseNode {
 
   Stream<NodeCommand> get commandsResponse => _commandsResponses.stream;
 
-  void discoverNodes() => _broadcastForDiscovery();
+  Future<void> discoverNodes() async => _broadcastForDiscovery();
 
   Future<void> command(NodeCommand cmd, String to) => _sendCommand(cmd, to);
 
-  Future<void> initCommanderNode(String host) async {
+  Future<void> _initCommanderNode(String host) async {
     await _initNode(host, false, true);
   }
 
@@ -126,8 +125,8 @@ abstract class BaseNode {
   final StreamController<NodeCommand> _commandsIn =
       StreamController<NodeCommand>();
   final StreamController<NodeCommand> _commandsResponses =
-      StreamController<NodeCommand>();
-  final StreamController<dynamic> _logs = StreamController<dynamic>();
+      StreamController<NodeCommand>.broadcast();
+  final StreamController<dynamic> _logs = StreamController<dynamic>.broadcast();
 
   Future get onReady => _readyCompleter.future;
 
@@ -194,8 +193,9 @@ abstract class BaseNode {
     this.port = port;
     final routes = <IsoRoute>[];
     if (_isSoldier) routes.add(IsoRoute(handler: cmdSendHandler, path: "/cmd"));
-    if (_isCommander)
+    if (_isCommander) {
       routes.add(IsoRoute(handler: cmdResponseHandler, path: "/cmd/response"));
+    }
     final router = IsoRouter(routes);
     // run isolate
     iso = IsoHttpdRunner(host: host, router: router);
@@ -204,6 +204,7 @@ abstract class BaseNode {
 
   void _listenToIso() {
     iso.logs.listen((dynamic data) {
+      //print("ISO LOG $data");
       if (data is NodeCommand) {
         final NodeCommand cmd = data;
         if (!cmd.isExecuted) {
@@ -224,8 +225,9 @@ abstract class BaseNode {
                 address: "${cmd.payload["host"]}:${cmd.payload["port"]}",
                 lastSeen: DateTime.now());
             _soldiers.add(soldier);
-            if (verbose)
-              print("Soldier ${soldier.name} connected at ${soldier.name}");
+            if (verbose) {
+              print("Soldier ${soldier.name} connected at ${soldier.address}");
+            }
           }
           if (verbose) {
             print("> Command response ${cmd.name} received from ${cmd.from}");
@@ -233,8 +235,9 @@ abstract class BaseNode {
           }
           _commandsResponses.sink.add(cmd);
         }
-      } else
+      } else {
         _logs.sink.add(data);
+      }
     });
   }
 
@@ -258,12 +261,12 @@ abstract class BaseNode {
         print(e.response.data);
         print(e.response.headers);
         print(e.response.request.baseUrl);
-        throw (e);
+        rethrow;
       } else {
         print("REQUEST");
         print(e.request.path);
         print(e.message);
-        throw (e);
+        rethrow;
       }
     } catch (e) {
       throw ("Can not post command $e");
@@ -302,9 +305,10 @@ abstract class BaseNode {
       final message = utf8.decode(d.data).trim();
       final dynamic data = json.decode(message);
       //print('Datagram from ${d.address.address}:${d.port}: ${message}');
-      if (verbose)
+      if (verbose) {
         print(
             "Received connection request from commander node ${data["host"]}");
+      }
       final payload = <String, String>{
         "host": "$host",
         "port": "$port",
