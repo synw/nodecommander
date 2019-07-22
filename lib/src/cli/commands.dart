@@ -1,5 +1,3 @@
-import 'package:nodecommander/src/command/model.dart';
-
 import '../node.dart';
 import 'state.dart';
 

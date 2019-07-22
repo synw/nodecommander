@@ -15,6 +15,8 @@ enum CommandStatus {
 typedef Future<NodeCommand> CommandExecutor(
     NodeCommand command, List<dynamic> parameters);
 
+typedef Future<void> ResponseProcessor(NodeCommand command);
+
 class ConnectedSoldierNode {
   ConnectedSoldierNode(
       {@required this.name, @required this.address, this.lastSeen});
@@ -30,6 +32,7 @@ class NodeCommand {
       this.from,
       this.arguments,
       this.executor,
+      this.responseProcessor,
       this.payload,
       this.status = CommandStatus.pending,
       this.isExecuted = false})
@@ -43,12 +46,21 @@ class NodeCommand {
   dynamic error;
   CommandStatus status;
   CommandExecutor executor;
+  ResponseProcessor responseProcessor;
   bool isExecuted;
 
   Future<NodeCommand> execute(NodeCommand cmd, List<dynamic> parameters) async {
     final NodeCommand returnCmd = await executor(cmd, parameters);
     returnCmd.isExecuted = true;
     return returnCmd;
+  }
+
+  Future<void> processResponse(NodeCommand cmd) async {
+    try {
+      await responseProcessor(cmd);
+    } catch (e) {
+      throw ("Can not process response $e");
+    }
   }
 
   NodeCommand.fromJson(dynamic data)
