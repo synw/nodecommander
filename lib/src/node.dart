@@ -8,6 +8,35 @@ import 'command/model.dart';
 import 'http_handlers.dart';
 import 'desktop/host.dart';
 
+class MixedNode extends BaseMixedNode {
+  MixedNode(
+      {@required this.name,
+      this.host,
+      this.port = 8084,
+      this.verbose = false}) {
+    if (Platform.isAndroid || Platform.isIOS) {
+      if (host == null) {
+        throw (ArgumentError("Please provide a host for the node"));
+      }
+    }
+  }
+
+  @override
+  String name;
+  @override
+  String host;
+  @override
+  int port;
+  @override
+  bool verbose;
+
+  Future<void> init() async {
+    String _host = host;
+    if (host == null) _host = await getHost();
+    await _initMixedNode(_host);
+  }
+}
+
 class SoldierNode extends BaseSoldierNode {
   SoldierNode(
       {@required this.name,
@@ -62,7 +91,7 @@ class CommanderNode extends BaseCommanderNode {
   }
 }
 
-abstract class BaseCommanderNode extends BaseNode {
+abstract class BaseCommanderNode with BaseNode {
   List<ConnectedSoldierNode> get soldiers => _soldiers;
 
   Stream<NodeCommand> get commandsResponse => _commandsResponses.stream;
@@ -98,13 +127,53 @@ abstract class BaseCommanderNode extends BaseNode {
   }
 }
 
-abstract class BaseSoldierNode extends BaseNode {
+abstract class BaseSoldierNode with BaseNode {
   Stream<NodeCommand> get commandsIn => _commandsIn.stream;
 
   Future<void> respond(NodeCommand cmd) => _sendCommandResponse(cmd);
 
   Future<void> initSoldierNode(String host) async {
     await _initNode(host, true, false);
+  }
+}
+
+abstract class BaseMixedNode with BaseNode {
+  List<ConnectedSoldierNode> get soldiers => _soldiers;
+
+  Stream<NodeCommand> get commandsResponse => _commandsResponses.stream;
+
+  Future<void> discoverNodes() async => _broadcastForDiscovery();
+
+  Future<void> command(NodeCommand cmd, String to) => _sendCommand(cmd, to);
+
+  Stream<NodeCommand> get commandsIn => _commandsIn.stream;
+
+  Future<void> respond(NodeCommand cmd) => _sendCommandResponse(cmd);
+
+  Future<void> _initMixedNode(String host) async {
+    await _initNode(host, true, true);
+  }
+
+  bool hasSoldier(String name) {
+    bool has = false;
+    for (final so in _soldiers) {
+      if (so.name == name) {
+        has = true;
+        break;
+      }
+    }
+    return has;
+  }
+
+  String soldierUri(String name) {
+    String addr;
+    for (final so in _soldiers) {
+      if (so.name == name) {
+        addr = so.address;
+        break;
+      }
+    }
+    return addr;
   }
 }
 
