@@ -204,7 +204,7 @@ abstract class BaseNode {
 
   void _listenToIso() {
     iso.logs.listen((dynamic data) {
-      //print("ISO LOG $data");
+      print("ISO LOG $data");
       if (data is NodeCommand) {
         final NodeCommand cmd = data;
         if (!cmd.isExecuted) {

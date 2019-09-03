@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'package:nodecommander/src/cli/state.dart';
-import 'package:nodecommander/src/command/model.dart';
 import 'package:pedantic/pedantic.dart';
 import 'package:prompts/prompts.dart' as prompts;
+import '../command/model.dart';
 import '../node.dart';
 import 'commands.dart';
 import '../plugin.dart';
+import 'state.dart';
 
 StreamSubscription<NodeCommand> cmdResponse;
 
@@ -71,7 +71,7 @@ class NodeCommanderCli {
             }
           }
         }
-        StreamSubscription<NodeCommand> sub;
+        StreamSubscription sub;
         sub = await node.commandsResponse.listen((_cmd) async {
           //print("Processing response: ${_cmd.payload}");
           //print("RECEIVE $_cmd");
@@ -79,7 +79,8 @@ class NodeCommanderCli {
           for (final plugin in plugins) {
             for (final cmd in plugin.commands) {
               if (cmd.name == _cmd.name) {
-                _cmd.responseProcessor = cmd.responseProcessor;
+                _cmd.responseProcessor =
+                    cmd.responseProcessor as ResponseProcessor;
               }
             }
           }
@@ -140,7 +141,7 @@ class NodeCommanderCli {
   });*/
     node.info();
     await node.onReady;
-    node.discoverNodes();
+    unawaited(node.discoverNodes());
     await Future<dynamic>.delayed(Duration(seconds: 2));
     print("Soldiers: ${node.soldiers}}");
     for (final s in node.soldiers) {
