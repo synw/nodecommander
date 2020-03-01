@@ -20,8 +20,9 @@ Future<HttpResponse> cmdResponseHandler(
   final content = await utf8.decoder.bind(request).join();
   final dynamic c = json.decode(content);
   final NodeCommand command = NodeCommand.fromJson(c);
-  logger.data(IsoServerLog(
-      message: "Reponded to command ${command.name}", payload: command));
+  logger.data(
+      IsoServerLog(message: "Responded to command $command", payload: command));
+  command.info();
   request.response.statusCode = HttpStatus.ok;
   return request.response;
 }

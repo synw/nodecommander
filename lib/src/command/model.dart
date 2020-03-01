@@ -72,9 +72,10 @@ class NodeCommand {
         this.error = null,
         this.isExecuted = false {
     if (data.containsKey("error") == true) this.error = error.toString();
-    if (data.containsKey("arguments") == true)
+    if (data.containsKey("arguments") == true) {
       this.arguments =
           json.decode(data["arguments"].toString()) as List<dynamic>;
+    }
     if (data.containsKey("payload") == true) {
       this.payload =
           json.decode(data["payload"].toString()) as Map<String, dynamic>;

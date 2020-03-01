@@ -211,8 +211,12 @@ abstract class BaseNode {
     _listenToIso();
     await _initForDiscovery();
     await iso.onServerStarted;
-    if (_isSoldier) await _listenForDiscovery();
-    if (verbose) print("Node is ready");
+    if (_isSoldier) {
+      await _listenForDiscovery();
+    }
+    if (verbose) {
+      print("Node is ready");
+    }
     _readyCompleter.complete();
   }
 
@@ -252,8 +256,12 @@ abstract class BaseNode {
   }
 
   void info() {
+    var nt = (_isSoldier) ? "Soldier" : "Commander";
+    if (_isSoldier && _isCommander) {
+      nt = "Mixed";
+    }
     print("\n******************************************");
-    print("Node running on: $host:$port");
+    print("$nt node running on: $host:$port");
     print("******************************************\n");
   }
 
@@ -276,6 +284,9 @@ abstract class BaseNode {
       print("ISO LOG $data");
       if (data is NodeCommand) {
         final NodeCommand cmd = data;
+        print("COMMAND :");
+        cmd.info();
+
         if (!cmd.isExecuted) {
           // command reveived by soldier
           if (!_isSoldier) {
@@ -352,25 +363,35 @@ abstract class BaseNode {
     String broadcastAddr;
     final l = host.split(".");
     broadcastAddr = "${l[0]}.${l[1]}.${l[2]}.255";
-    if (verbose) print("Broadcasting to $broadcastAddr: $payload");
+    if (verbose) {
+      print("Broadcasting to $broadcastAddr: $payload");
+    }
     _socket.send(data, InternetAddress(broadcastAddr), 8889);
   }
 
   Future<void> _initForDiscovery() async {
-    if (verbose) print("Initializing for discovery on $host");
+    if (verbose) {
+      print("Initializing for discovery on $host");
+    }
     _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 8889);
     _socket.broadcastEnabled = true;
-    print("Socket is ready at ${_socket.address.host}");
+    if (verbose) {
+      print("Socket is ready at ${_socket.address.host}");
+    }
     _socketReady.complete();
   }
 
   void _listenForDiscovery() async {
     assert(_socket != null);
     await _socketReady;
-    if (verbose) print("Listenning on _socket ${_socket.address.host}");
+    if (verbose) {
+      print("Listenning on _socket ${_socket.address.host}");
+    }
     _socket.listen((RawSocketEvent e) {
       Datagram d = _socket.receive();
-      if (d == null) return;
+      if (d == null) {
+        return;
+      }
       final message = utf8.decode(d.data).trim();
       final dynamic data = json.decode(message);
       //print('Datagram from ${d.address.address}:${d.port}: ${message}');
