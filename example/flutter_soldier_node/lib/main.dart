@@ -70,8 +70,7 @@ class _MyHomePageState extends State<MyHomePage> {
       }
       node.respond(cmd);
     });
-    final Completer<Null> waiter = Completer<Null>();
-    await waiter.future;
+    await Completer<void>().future;
   }
 
   void _incrementCounter() {
