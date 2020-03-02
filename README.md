@@ -24,8 +24,7 @@
        }
        node.respond(cmd);
      });
-     final waiter = Completer<Null>();
-     await waiter.future;
+     await Completer<void>().future;
    }
    ```
 
@@ -54,7 +53,6 @@ Commander node:
        // send a command
        node.command(NodeCommand(name: "test_cmd"), to);
      }
-     final waiter = Completer<Null>();
-     await waiter.future;
+     await Completer<void>().future;
    }
    ```
