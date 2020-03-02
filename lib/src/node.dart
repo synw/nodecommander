@@ -30,10 +30,12 @@ class SoldierNode extends BaseSoldierNode {
   @override
   bool verbose;
 
-  Future<void> init() async {
-    String _host = host;
-    if (host == null) _host = await getHost();
-    await initSoldierNode(_host);
+  Future<void> init([String _host]) async {
+    _host ??= host;
+    if (_host == null) {
+      _host = await getHost();
+    }
+    await _initSoldierNode(_host);
   }
 }
 
@@ -55,9 +57,12 @@ class CommanderNode extends BaseCommanderNode {
   @override
   bool verbose;
 
-  Future<void> init() async {
-    String _host = host;
-    if (host == null) _host = await getHost();
+  Future<void> init([String _host]) async {
+    _host ??= host;
+    if (_host == null) {
+      _host = await getHost();
+    }
+    ;
     await _initCommanderNode(_host);
   }
 }
@@ -76,7 +81,7 @@ abstract class BaseCommanderNode with BaseNode {
   }
 
   bool hasSoldier(String name) {
-    bool has = false;
+    var has = false;
     for (final so in _soldiers) {
       if (so.name == name) {
         has = true;
@@ -103,7 +108,7 @@ abstract class BaseSoldierNode with BaseNode {
 
   Future<void> respond(NodeCommand cmd) => _sendCommandResponse(cmd);
 
-  Future<void> init(String host) async {
+  Future<void> _initSoldierNode(String host) async {
     await _initNode(host, true, false);
   }
 }
@@ -134,7 +139,7 @@ abstract class BaseNode {
     host = _host;
     _isSoldier = isSoldier;
     _isCommander = isCommander;
-    final IsoRouter router = _initRoutes();
+    final router = _initRoutes();
     // run isolate
     iso = IsoHttpdRunner(
         host: host, port: port, router: router, verbose: verbose);
@@ -200,7 +205,9 @@ abstract class BaseNode {
     this.host = host;
     this.port = port;
     final routes = <IsoRoute>[];
-    if (_isSoldier) routes.add(IsoRoute(handler: cmdSendHandler, path: "/cmd"));
+    if (_isSoldier) {
+      routes.add(IsoRoute(handler: cmdSendHandler, path: "/cmd"));
+    }
     if (_isCommander) {
       routes.add(IsoRoute(handler: cmdResponseHandler, path: "/cmd/response"));
     }
@@ -214,7 +221,7 @@ abstract class BaseNode {
     iso.logs.listen((dynamic data) {
       print("ISO LOG $data");
       if (data is NodeCommand) {
-        final NodeCommand cmd = data;
+        final cmd = data;
         print("COMMAND :");
         cmd.info();
 
@@ -258,7 +265,7 @@ abstract class BaseNode {
     assert(to != null);
     assert(endPoint != null);
     cmd.from ??= "$host:$port";
-    final String uri = "http://$to$endPoint";
+    final uri = "http://$to$endPoint";
     Response response;
     try {
       final dynamic data = cmd.toJson();
@@ -304,8 +311,8 @@ abstract class BaseNode {
     if (verbose) {
       print("Initializing for discovery on $host");
     }
-    _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 8889);
-    _socket.broadcastEnabled = true;
+    _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 8889)
+      ..broadcastEnabled = true;
     if (verbose) {
       print("Socket is ready at ${_socket.address.host}");
     }
@@ -319,7 +326,7 @@ abstract class BaseNode {
       print("Listenning on _socket ${_socket.address.host}");
     }
     _socket.listen((RawSocketEvent e) {
-      Datagram d = _socket.receive();
+      final d = _socket.receive();
       if (d == null) {
         return;
       }
@@ -338,8 +345,9 @@ abstract class BaseNode {
       final cmd = NodeCommand(
           name: "connection_request_from_discovery", payload: payload);
       final addr = "${data["host"]}:${data["port"]}";
-      cmd.from = addr;
-      cmd.isExecuted = true;
+      cmd
+        ..from = addr
+        ..isExecuted = true;
       _sendCommandResponse(cmd);
     });
   }
