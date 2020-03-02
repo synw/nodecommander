@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:meta/meta.dart';
 import 'package:uuid/uuid.dart';
 
-var uuid = Uuid();
+Uuid uuid = Uuid();
 
 enum CommandStatus {
   pending,
@@ -12,10 +12,10 @@ enum CommandStatus {
   executionError
 }
 
-typedef Future<NodeCommand> CommandExecutor(
+typedef CommandExecutor = Future<NodeCommand> Function(
     NodeCommand command, List<dynamic> parameters);
 
-typedef Future<void> ResponseProcessor(NodeCommand command);
+typedef ResponseProcessor = Future<void> Function(NodeCommand command);
 
 class ConnectedSoldierNode {
   ConnectedSoldierNode(
@@ -59,7 +59,7 @@ class NodeCommand {
     try {
       await responseProcessor(cmd);
     } catch (e) {
-      throw ("Can not process response $e");
+      rethrow;
     }
   }
 
@@ -80,7 +80,7 @@ class NodeCommand {
       this.payload =
           json.decode(data["payload"].toString()) as Map<String, dynamic>;
     }
-    this.isExecuted = (data["isExecuted"].toString() == "true");
+    this.isExecuted = data["isExecuted"].toString() == "true";
   }
 
   Map<String, dynamic> toJson() {

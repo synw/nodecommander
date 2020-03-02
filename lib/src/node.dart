@@ -1,12 +1,14 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:convert';
-import 'package:isohttpd/isohttpd.dart';
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:isohttpd/isohttpd.dart';
 import 'package:meta/meta.dart';
+
 import 'command/model.dart';
-import 'http_handlers.dart';
 import 'desktop/host.dart';
+import 'http_handlers.dart';
 
 class SoldierNode extends BaseSoldierNode {
   SoldierNode(
@@ -16,7 +18,7 @@ class SoldierNode extends BaseSoldierNode {
       this.verbose = false}) {
     if (Platform.isAndroid || Platform.isIOS) {
       if (host == null) {
-        throw (ArgumentError("Please provide a host for the node"));
+        throw ArgumentError("Please provide a host for the node");
       }
     }
   }
@@ -31,11 +33,10 @@ class SoldierNode extends BaseSoldierNode {
   bool verbose;
 
   Future<void> init([String _host]) async {
-    _host ??= host;
-    if (_host == null) {
-      _host = await getHost();
-    }
-    await _initSoldierNode(_host);
+    var _h = _host;
+    _h ??= host;
+    _h ??= await getHost();
+    await _initSoldierNode(_h);
   }
 }
 
@@ -43,7 +44,7 @@ class CommanderNode extends BaseCommanderNode {
   CommanderNode({this.host, this.port = 8084, this.verbose = false}) {
     if (Platform.isAndroid || Platform.isIOS) {
       if (host == null) {
-        throw (ArgumentError("Please provide a host for the node"));
+        throw ArgumentError("Please provide a host for the node");
       }
     }
   }
@@ -58,12 +59,10 @@ class CommanderNode extends BaseCommanderNode {
   bool verbose;
 
   Future<void> init([String _host]) async {
-    _host ??= host;
-    if (_host == null) {
-      _host = await getHost();
-    }
-    ;
-    await _initCommanderNode(_host);
+    var _h = _host;
+    _h ??= host;
+    _h ??= await getHost();
+    await _initCommanderNode(_h);
   }
 }
 
@@ -121,7 +120,7 @@ abstract class BaseNode {
   bool verbose;
 
   RawDatagramSocket _socket;
-  final Completer<Null> _socketReady = Completer<Null>();
+  final Completer<void> _socketReady = Completer<void>();
   final List<ConnectedSoldierNode> _soldiers = <ConnectedSoldierNode>[];
   final Dio _dio = Dio(BaseOptions(connectTimeout: 5000, receiveTimeout: 3000));
   bool _isSoldier;
@@ -192,7 +191,7 @@ abstract class BaseNode {
   }
 
   void info() {
-    var nt = (_isSoldier) ? "Soldier" : "Commander";
+    var nt = _isSoldier ? "Soldier" : "Commander";
     if (_isSoldier && _isCommander) {
       nt = "Mixed";
     }
@@ -287,12 +286,12 @@ abstract class BaseNode {
         rethrow;
       }
     } catch (e) {
-      throw ("Can not post command $e");
+      rethrow;
     }
     return response;
   }
 
-  void _broadcastForDiscovery() async {
+  Future<void> _broadcastForDiscovery() async {
     assert(host != null);
     assert(_isCommander);
     await _socketReady.future;
@@ -319,9 +318,9 @@ abstract class BaseNode {
     _socketReady.complete();
   }
 
-  void _listenForDiscovery() async {
+  Future<void> _listenForDiscovery() async {
     assert(_socket != null);
-    await _socketReady;
+    await _socketReady.future;
     if (verbose) {
       print("Listenning on _socket ${_socket.address.host}");
     }

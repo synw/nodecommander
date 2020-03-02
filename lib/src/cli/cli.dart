@@ -1,10 +1,12 @@
 import 'dart:async';
+
 import 'package:pedantic/pedantic.dart';
 import 'package:prompts/prompts.dart' as prompts;
+
 import '../command/model.dart';
 import '../node.dart';
-import 'commands.dart';
 import '../plugin.dart';
+import 'commands.dart';
 import 'state.dart';
 
 StreamSubscription<NodeCommand> cmdResponse;
@@ -15,7 +17,7 @@ class NodeCommanderCli {
   List<NodeCommanderPlugin> plugins;
   String promptString = "command";
 
-  void run(CommanderNode node,
+  Future<void> run(CommanderNode node,
       {List<NodeCommanderPlugin> plugins =
           const <NodeCommanderPlugin>[]}) async {
     this.plugins = plugins;
@@ -25,11 +27,12 @@ class NodeCommanderCli {
     await prompt(node, plugins);
   }
 
-  void prompt(CommanderNode node, List<NodeCommanderPlugin> plugins) async {
+  Future<void> prompt(
+      CommanderNode node, List<NodeCommanderPlugin> plugins) async {
     assert(node != null);
     final cmdLine = prompts.get(promptString);
     bool found = false;
-    final commandOk = Completer<Null>();
+    final commandOk = Completer<void>();
     // base command without args
     switch (cmdLine) {
       case "/d":
@@ -72,26 +75,25 @@ class NodeCommanderCli {
           }
         }
         StreamSubscription sub;
-        sub = await node.commandsResponse.listen((_cmd) async {
+        sub = node.commandsResponse.listen((_cmd) async {
           //print("Processing response: ${_cmd.payload}");
           //print("RECEIVE $_cmd");
           // find response processor
           for (final plugin in plugins) {
             for (final cmd in plugin.commands) {
               if (cmd.name == _cmd.name) {
-                _cmd.responseProcessor =
-                    cmd.responseProcessor as ResponseProcessor;
+                _cmd.responseProcessor = cmd.responseProcessor;
               }
             }
           }
           //print("PROC: ${_cmd.responseProcessor}");
           if (_cmd.responseProcessor == null) {
-            throw ("Can not find response processor");
+            throw "Can not find response processor";
           }
           try {
             await _cmd.processResponse(_cmd);
           } catch (e) {
-            throw ("Error processing response: $e");
+            throw "Error processing response: $e";
           }
           commandOk.complete();
           unawaited(sub.cancel());
@@ -105,7 +107,7 @@ class NodeCommanderCli {
       commandOk.complete();
     }
     await commandOk.future;
-    prompt(node, plugins);
+    unawaited(prompt(node, plugins));
   }
 
   NodeCommand getCmd(String cmdLine) {
