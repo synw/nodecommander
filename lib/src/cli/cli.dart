@@ -121,10 +121,8 @@ class NodeCommanderCli {
   }
 
   String getArg(String cmdLine) {
-    String arg;
     final l = cmdLine.split(" ");
-    arg = l[1];
-    return arg;
+    return l[1];
   }
 
   Future<CommanderNode> init() async {

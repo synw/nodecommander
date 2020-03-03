@@ -144,8 +144,8 @@ abstract class BaseNode {
         host: host, port: port, router: router, verbose: verbose);
     await iso.run(verbose: verbose);
     _listenToIso();
-    await _initForDiscovery();
     await iso.onServerStarted;
+    await _initForDiscovery();
     if (_isSoldier) {
       await _listenForDiscovery();
     }
@@ -315,7 +315,9 @@ abstract class BaseNode {
     if (verbose) {
       print("Socket is ready at ${_socket.address.host}");
     }
-    _socketReady.complete();
+    if (!_socketReady.isCompleted) {
+      _socketReady.complete();
+    }
   }
 
   Future<void> _listenForDiscovery() async {
