@@ -13,12 +13,14 @@ void main() async {
   });
   node.info();
   await node.onReady;
-  node.discoverNodes();
-  await Future<dynamic>.delayed(Duration(seconds: 2));
+  print("Discovering nodes");
+  await node.discoverNodes();
+  print("Nodes found: ${node.soldiers}");
+  await Future<dynamic>.delayed(const Duration(seconds: 2));
   for (final s in node.soldiers) {
     print("Found soldier ${s.name} at ${s.address}");
   }
-  await Future<dynamic>.delayed(Duration(seconds: 2));
+  await Future<dynamic>.delayed(const Duration(seconds: 2));
   if (node.hasSoldier("command_line_node_1")) {
     final String to = node.soldierUri("command_line_node_1");
     // send a command
@@ -28,11 +30,11 @@ void main() async {
     final String to = node.soldierUri("flutter_node_1");
     // send a command
     node.command(NodeCommand(name: "counter"), to);
-    await Future<dynamic>.delayed(Duration(seconds: 2));
+    await Future<dynamic>.delayed(const Duration(seconds: 2));
     node.command(NodeCommand(name: "counter"), to);
-    await Future<dynamic>.delayed(Duration(seconds: 2));
+    await Future<dynamic>.delayed(const Duration(seconds: 2));
     node.command(NodeCommand(name: "counter"), to);
-    await Future<dynamic>.delayed(Duration(seconds: 2));
+    await Future<dynamic>.delayed(const Duration(seconds: 2));
     node.command(NodeCommand(name: "counter"), to);
   }
   final waiter = Completer<Null>();
