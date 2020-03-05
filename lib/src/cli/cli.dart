@@ -1,4 +1,4 @@
-import 'dart:async';
+/*import 'dart:async';
 
 import 'package:pedantic/pedantic.dart';
 import 'package:prompts/prompts.dart' as prompts;
@@ -91,7 +91,7 @@ class NodeCommanderCli {
             throw "Can not find response processor";
           }
           try {
-            await _cmd.processResponse(_cmd);
+            await _cmd.processResponse();
           } catch (e) {
             throw "Error processing response: $e";
           }
@@ -142,11 +142,11 @@ class NodeCommanderCli {
     node.info();
     await node.onReady;
     unawaited(node.discoverNodes());
-    await Future<dynamic>.delayed(Duration(seconds: 2));
+    await Future<dynamic>.delayed(const Duration(seconds: 2));
     print("Soldiers: ${node.soldiers}}");
     for (final s in node.soldiers) {
       print("Found soldier ${s.name} at ${s.address}");
     }
     return node;
   }
-}
+}*/

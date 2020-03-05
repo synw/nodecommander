@@ -5,14 +5,19 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:isohttpd/isohttpd.dart';
 import 'package:meta/meta.dart';
+import 'package:emodebug/emodebug.dart';
+import 'package:nodecommander/nodecommander.dart';
 
 import 'command/model.dart';
 import 'desktop/host.dart';
 import 'http_handlers.dart';
 
+const _ = EmoDebug();
+
 class SoldierNode extends BaseSoldierNode {
   SoldierNode(
       {@required this.name,
+      @required this.commands,
       this.host,
       this.port = 8084,
       this.verbose = false}) {
@@ -31,6 +36,8 @@ class SoldierNode extends BaseSoldierNode {
   int port;
   @override
   bool verbose;
+  @override
+  List<NodeCommand> commands;
 
   Future<void> init([String _host]) async {
     var _h = _host;
@@ -41,7 +48,12 @@ class SoldierNode extends BaseSoldierNode {
 }
 
 class CommanderNode extends BaseCommanderNode {
-  CommanderNode({this.host, this.port = 8084, this.verbose = false}) {
+  CommanderNode(
+      {@required this.name,
+      @required this.commands,
+      this.host,
+      this.port = 8084,
+      this.verbose = false}) {
     if (Platform.isAndroid || Platform.isIOS) {
       if (host == null) {
         throw ArgumentError("Please provide a host for the node");
@@ -57,6 +69,8 @@ class CommanderNode extends BaseCommanderNode {
   int port;
   @override
   bool verbose;
+  @override
+  List<NodeCommand> commands;
 
   Future<void> init([String _host]) async {
     var _h = _host;
@@ -73,7 +87,7 @@ abstract class BaseCommanderNode with BaseNode {
 
   Future<void> discoverNodes() async => _broadcastForDiscovery();
 
-  Future<void> command(NodeCommand cmd, String to) => _sendCommand(cmd, to);
+  Future<void> sendCommand(NodeCommand cmd, String to) => _sendCommand(cmd, to);
 
   Future<void> _initCommanderNode(String host) async {
     await _initNode(host, false, true);
@@ -103,12 +117,21 @@ abstract class BaseCommanderNode with BaseNode {
 }
 
 abstract class BaseSoldierNode with BaseNode {
-  Stream<NodeCommand> get commandsIn => _commandsIn.stream;
+  //Stream<NodeCommand> get commandsIn => _commandsExecuted.stream;
+
+  StreamSubscription<NodeCommand> _sub;
 
   Future<void> respond(NodeCommand cmd) => _sendCommandResponse(cmd);
 
   Future<void> _initSoldierNode(String host) async {
     await _initNode(host, true, false);
+    _sub = _commandsExecuted.stream.listen((c) => respond(c));
+  }
+
+  @override
+  void dispose() {
+    _sub.cancel();
+    super.dispose();
   }
 }
 
@@ -116,7 +139,8 @@ abstract class BaseNode {
   String name;
   String host;
   int port;
-  IsoHttpdRunner iso;
+  IsoHttpd iso;
+  List<NodeCommand> commands;
   bool verbose;
 
   RawDatagramSocket _socket;
@@ -126,7 +150,7 @@ abstract class BaseNode {
   bool _isSoldier;
   bool _isCommander;
   final Completer _readyCompleter = Completer<void>();
-  final StreamController<NodeCommand> _commandsIn =
+  final StreamController<NodeCommand> _commandsExecuted =
       StreamController<NodeCommand>();
   final StreamController<NodeCommand> _commandsResponses =
       StreamController<NodeCommand>.broadcast();
@@ -134,15 +158,30 @@ abstract class BaseNode {
 
   Future get onReady => _readyCompleter.future;
 
+  NodeCommand _fromAuthorizedCommands(NodeCommand _cmd) {
+    final isInternal = internalCommands.contains(_cmd);
+    if (isInternal) {
+      final _intCmd = internalCommands.where((c) => c == _cmd).toList()[0];
+      return _cmd.copyWithExecMethods(
+          exec: _intCmd.executor, resp: _intCmd.responseProcessor);
+    }
+    final knownCmds = commands.where((c) => c == _cmd).toList();
+    if (knownCmds.isEmpty) {
+      return null;
+    }
+    final kc = knownCmds[0];
+    return _cmd.copyWithExecMethods(
+        exec: kc.executor, resp: kc.responseProcessor);
+  }
+
   Future<void> _initNode(String _host, bool isSoldier, bool isCommander) async {
     host = _host;
     _isSoldier = isSoldier;
     _isCommander = isCommander;
     final router = _initRoutes();
     // run isolate
-    iso = IsoHttpdRunner(
-        host: host, port: port, router: router, verbose: verbose);
-    await iso.run(verbose: verbose);
+    iso = IsoHttpd(host: host, port: port, router: router);
+    await iso.run();
     _listenToIso();
     await iso.onServerStarted;
     await _initForDiscovery();
@@ -150,7 +189,7 @@ abstract class BaseNode {
       await _listenForDiscovery();
     }
     if (verbose) {
-      print("Node is ready");
+      _.ok("Node is ready");
     }
     _readyCompleter.complete();
   }
@@ -160,32 +199,35 @@ abstract class BaseNode {
     assert(to != null);
     assert(cmd != null);
     if (verbose) {
-      print("< Sending command ${cmd.name} to $to");
-      cmd.info();
+      _.smallArrowOut("Sending command ${cmd.name} to $to");
+      //cmd.info();
     }
     final response = await _sendCommandRun(cmd, to, "/cmd");
-    if (response.statusCode != HttpStatus.ok) {
-      _logs.sink.add("Error sending the command: code ${response.statusCode}");
+    if (response == null || response.statusCode != HttpStatus.ok) {
+      final code = response?.statusCode ?? "no response";
+      _logs.sink.add("Error sending the command: $code");
     }
   }
 
   Future<void> _sendCommandResponse(NodeCommand cmd) async {
     assert(_isSoldier);
     assert(cmd.from != null);
-    cmd.isExecuted = true;
+    //print("CMD FROM ${cmd.from}");
+    final _cmd = cmd.copyAndSetExecuted();
+    //print("CMD FROM AFTER COPY ${_cmd.from}");
     if (verbose) {
-      print("< Sending command response ${cmd.name} to ${cmd.from}");
-      cmd.info();
+      _.smallArrowOut("Sending command response ${_cmd.name} to ${_cmd.from}");
+      //cmd.info();
     }
-    final response = await _sendCommandRun(cmd, cmd.from, "/cmd/response");
-    if (response.statusCode != HttpStatus.ok) {
-      _logs.sink.add(
-          "Error sending the command response: code ${response.statusCode}");
+    final response = await _sendCommandRun(_cmd, _cmd.from, "/cmd/response");
+    if (response == null || response.statusCode != HttpStatus.ok) {
+      final code = response?.statusCode ?? "no response";
+      _logs.sink.add("Error sending the command response: $code");
     }
   }
 
   void dispose() {
-    _commandsIn.close();
+    _commandsExecuted.close();
     _commandsResponses.close();
     _logs.close();
   }
@@ -212,45 +254,58 @@ abstract class BaseNode {
     }
     final router = IsoRouter(routes);
     // run isolate
-    iso = IsoHttpdRunner(host: host, router: router);
+    iso = IsoHttpd(host: host, router: router);
     return router;
   }
 
   void _listenToIso() {
-    iso.logs.listen((dynamic data) {
-      print("ISO LOG $data");
+    iso.logs.listen((dynamic data) async {
+      //print("ISO LOG $data / ${data.runtimeType}");
       if (data is NodeCommand) {
-        final cmd = data;
-        print("COMMAND :");
-        cmd.info();
+        // verify command
+        final cmd = _fromAuthorizedCommands(data);
+        if (cmd == null) {
+          throw "Unauthorized command";
+        }
 
         if (!cmd.isExecuted) {
+          //print("CMD NOT EXECUTED $cmd");
           // command reveived by soldier
           if (!_isSoldier) {
-            _logs.sink.add("Command ${cmd.name} received by non soldier node");
+            _logs.sink.add("Non executed command ${cmd.name} received by "
+                "non soldier node");
+            return;
           } else {
             if (verbose) {
-              print("> Command ${cmd.name} received from ${cmd.from}");
-              cmd.info();
+              _.arrowIn("Command ${cmd.name} received from ${cmd.from}");
+              //cmd.info();
             }
-            _commandsIn.sink.add(cmd);
+            final _cmd = await cmd.execute();
+            _commandsExecuted.sink.add(_cmd);
           }
         } else {
+          //print("CMD EXECUTED $cmd");
+          //cmd.info();
           if (cmd.name == "connection_request_from_discovery") {
+            //print("CONN REQUEST");
             final soldier = ConnectedSoldierNode(
                 name: cmd.payload["name"].toString(),
                 address: "${cmd.payload["host"]}:${cmd.payload["port"]}",
                 lastSeen: DateTime.now());
             _soldiers.add(soldier);
             if (verbose) {
-              print("Soldier ${soldier.name} connected at ${soldier.address}");
+              _.state(
+                  "Soldier ${soldier.name} connected at ${soldier.address}");
             }
+          } else {
+            if (verbose) {
+              _.arrowIn(
+                  "Command response ${cmd.name} received from ${cmd.from}");
+              //cmd.info();
+            }
+            await cmd.processResponse();
+            _commandsResponses.sink.add(cmd);
           }
-          if (verbose) {
-            print("> Command response ${cmd.name} received from ${cmd.from}");
-            cmd.info();
-          }
-          _commandsResponses.sink.add(cmd);
         }
       } else {
         _logs.sink.add(data);
@@ -263,27 +318,20 @@ abstract class BaseNode {
     assert(cmd != null);
     assert(to != null);
     assert(endPoint != null);
-    cmd.from ??= "$host:$port";
+    final _cmd = cmd.copyWithFrom("$host:$port");
     final uri = "http://$to$endPoint";
     Response response;
     try {
-      final dynamic data = cmd.toJson();
+      final dynamic data = _cmd.toJson();
       //print("URI $uri / DATA: $data");
       final _response = await _dio.post<dynamic>(uri, data: data);
       response = _response;
     } on DioError catch (e) {
-      print("Dio error: ${e.type}");
       if (e.response != null) {
-        print("RESPONSE:");
-        print(e.response.data);
-        print(e.response.headers);
-        print(e.response.request.baseUrl);
-        rethrow;
+        _.error(e, "http error with response");
+        return response;
       } else {
-        print("REQUEST");
-        print(e.request.path);
-        print(e.message);
-        rethrow;
+        _.error(e, "http error with no response");
       }
     } catch (e) {
       rethrow;
@@ -324,9 +372,9 @@ abstract class BaseNode {
     assert(_socket != null);
     await _socketReady.future;
     if (verbose) {
-      print("Listenning on _socket ${_socket.address.host}");
+      print("Listenning on socket ${_socket.address.host}");
     }
-    _socket.listen((RawSocketEvent e) {
+    _socket.listen((RawSocketEvent e) async {
       final d = _socket.receive();
       if (d == null) {
         return;
@@ -343,13 +391,16 @@ abstract class BaseNode {
         "port": "$port",
         "name": "$name"
       };
-      final cmd = NodeCommand(
-          name: "connection_request_from_discovery", payload: payload);
       final addr = "${data["host"]}:${data["port"]}";
-      cmd
-        ..from = addr
-        ..isExecuted = true;
-      _sendCommandResponse(cmd);
+      //print("RFD: addr: $addr");
+      //requestForDiscovery.info();
+      var _cmd = requestForDiscovery.copyWithFrom(addr);
+      //print("RFD 1: addr: ${_cmd.from}");
+      _cmd = _cmd.copyAndSetExecuted();
+      _cmd = _cmd.copyWithPayload(payload);
+      //print("SEND RESP ${_cmd.from}");
+      //_cmd.info();
+      await _sendCommandResponse(_cmd);
     });
   }
 }

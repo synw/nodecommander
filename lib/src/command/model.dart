@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:meta/meta.dart';
 import 'package:uuid/uuid.dart';
 
+import 'internal/commands.dart' as icmds;
+
 Uuid uuid = Uuid();
 
 enum CommandStatus {
@@ -12,10 +14,9 @@ enum CommandStatus {
   executionError
 }
 
-typedef CommandExecutor = Future<NodeCommand> Function(
-    NodeCommand command, List<dynamic> parameters);
+typedef CommandExecutor = Future<NodeCommand> Function(NodeCommand);
 
-typedef ResponseProcessor = Future<void> Function(NodeCommand command);
+typedef ResponseProcessor = Future<void> Function(NodeCommand);
 
 class ConnectedSoldierNode {
   ConnectedSoldierNode(
@@ -26,61 +27,189 @@ class ConnectedSoldierNode {
   DateTime lastSeen;
 }
 
+@immutable
 class NodeCommand {
-  NodeCommand(
-      {@required this.name,
-      this.from,
-      this.arguments,
-      this.executor,
-      this.responseProcessor,
-      this.payload,
+  const NodeCommand._createWithId(
+      {@required this.id,
+      @required this.name,
+      @required this.executor,
+      @required this.responseProcessor,
+      @required this.from,
+      this.payload = const <String, dynamic>{},
+      this.arguments = const <dynamic>[],
       this.status = CommandStatus.pending,
-      this.isExecuted = false})
-      : this.id = uuid.v4().toString();
+      this.isExecuted = false,
+      this.error});
 
-  String id;
+  NodeCommand.define({
+    @required this.name,
+    @required this.executor,
+    @required this.responseProcessor,
+    this.arguments = const <dynamic>[],
+  })  : this.payload = const <String, dynamic>{},
+        this.status = CommandStatus.pending,
+        this.isExecuted = false,
+        this.error = null,
+        this.from = null,
+        this.id = uuid.v4().toString();
+
+/*  NodeCommand.fromName({
+    @required this.name,
+    this.arguments = const <dynamic>[],
+  })  : this.payload = const <String, dynamic>{},
+        this.status = CommandStatus.pending,
+        this.isExecuted = false,
+        this.error = null,
+        this.from = null,
+        this.executor = null,
+        this.responseProcessor = null,
+        this.id = uuid.v4().toString();*/
+
+  NodeCommand copyAndSetExecuted() => NodeCommand._createWithId(
+      id: id,
+      name: name,
+      executor: executor,
+      responseProcessor: responseProcessor,
+      arguments: arguments,
+      status: status,
+      from: from,
+      error: error,
+      payload: payload,
+      isExecuted: true);
+
+  NodeCommand copyWithError(dynamic _error,
+          {CommandStatus cmdStatus = CommandStatus.executionError}) =>
+      NodeCommand._createWithId(
+          id: id,
+          name: name,
+          executor: executor,
+          responseProcessor: responseProcessor,
+          arguments: arguments,
+          status: cmdStatus,
+          from: from,
+          error: _error,
+          payload: payload,
+          isExecuted: isExecuted);
+
+  NodeCommand copyWithPayload(Map<String, dynamic> _payload,
+          {CommandStatus cmdStatus = CommandStatus.success}) =>
+      NodeCommand._createWithId(
+          id: id,
+          name: name,
+          executor: executor,
+          responseProcessor: responseProcessor,
+          arguments: arguments,
+          status: cmdStatus,
+          from: from,
+          error: error,
+          payload: _payload,
+          isExecuted: isExecuted);
+
+  NodeCommand copyWithStatus(CommandStatus _status) =>
+      NodeCommand._createWithId(
+          id: id,
+          name: name,
+          executor: executor,
+          responseProcessor: responseProcessor,
+          arguments: arguments,
+          status: _status,
+          from: from,
+          error: error,
+          payload: payload,
+          isExecuted: isExecuted);
+
+  NodeCommand copyWithArguments(List<dynamic> _args) =>
+      NodeCommand._createWithId(
+          id: id,
+          name: name,
+          executor: executor,
+          responseProcessor: responseProcessor,
+          arguments: _args,
+          status: status,
+          from: from,
+          error: error,
+          payload: payload,
+          isExecuted: isExecuted);
+
+  NodeCommand copyWithFrom(String _from) => NodeCommand._createWithId(
+      id: id,
+      name: name,
+      executor: executor,
+      responseProcessor: responseProcessor,
+      arguments: arguments,
+      status: status,
+      from: _from,
+      error: error,
+      payload: payload,
+      isExecuted: isExecuted);
+
+  NodeCommand copyWithExecMethods(
+          {CommandExecutor exec, ResponseProcessor resp}) =>
+      NodeCommand._createWithId(
+          id: id,
+          name: name,
+          executor: exec,
+          responseProcessor: resp,
+          arguments: arguments,
+          status: status,
+          from: from,
+          error: error,
+          payload: payload,
+          isExecuted: isExecuted);
+
+  final String id;
   final String name;
-  String from;
-  List<dynamic> arguments;
-  Map<String, dynamic> payload;
-  dynamic error;
-  CommandStatus status;
-  CommandExecutor executor;
-  ResponseProcessor responseProcessor;
-  bool isExecuted;
+  final String from;
+  final List<dynamic> arguments;
+  final Map<String, dynamic> payload;
+  final dynamic error;
+  final CommandStatus status;
+  final CommandExecutor executor;
+  final ResponseProcessor responseProcessor;
+  final bool isExecuted;
 
-  Future<NodeCommand> execute(NodeCommand cmd, List<dynamic> parameters) async {
-    final NodeCommand returnCmd = await executor(cmd, parameters);
-    returnCmd.isExecuted = true;
-    return returnCmd;
+  Future<NodeCommand> execute() async {
+    NodeCommand returnCmd;
+    try {
+      returnCmd = await executor(this);
+      //print("EXEC RETURN CMD ${returnCmd.copyAndSetExecuted().toJson()}");
+    } catch (e) {
+      rethrow;
+    }
+    return returnCmd.copyAndSetExecuted();
   }
 
-  Future<void> processResponse(NodeCommand cmd) async {
+  Future<void> processResponse() async {
     try {
-      await responseProcessor(cmd);
+      await responseProcessor(this);
     } catch (e) {
       rethrow;
     }
   }
 
-  NodeCommand.fromJson(dynamic data)
-      : this.id = data["id"].toString(),
-        this.name = data["name"].toString(),
-        this.from = data["from"].toString(),
-        this.arguments = null,
-        this.payload = null,
-        this.error = null,
-        this.isExecuted = false {
-    if (data.containsKey("error") == true) this.error = error.toString();
+  factory NodeCommand.fromJson(dynamic data) {
+    var c = NodeCommand._createWithId(
+        id: data["id"].toString(),
+        name: data["name"].toString(),
+        executor: null,
+        responseProcessor: null,
+        from: data["from"].toString());
+    if (data.containsKey("error") == true) {
+      c = c.copyWithError(data["error"].toString());
+    }
     if (data.containsKey("arguments") == true) {
-      this.arguments =
-          json.decode(data["arguments"].toString()) as List<dynamic>;
+      final args = json.decode(data["arguments"].toString()) as List<dynamic>;
+      c = c.copyWithArguments(args);
     }
     if (data.containsKey("payload") == true) {
-      this.payload =
+      final pl =
           json.decode(data["payload"].toString()) as Map<String, dynamic>;
+      c = c.copyWithPayload(pl);
     }
-    this.isExecuted = data["isExecuted"].toString() == "true";
+    if (data["isExecuted"].toString() == "true") {
+      c = c.copyAndSetExecuted();
+    }
+    return c;
   }
 
   Map<String, dynamic> toJson() {
@@ -96,6 +225,8 @@ class NodeCommand {
     return data;
   }
 
+  static NodeCommand ping() => icmds.ping;
+
   void info() {
     print("Command $name:");
     print("- Id: $id");
@@ -106,12 +237,18 @@ class NodeCommand {
     print("- Is executed: $isExecuted");
   }
 
-  String toMsg() {
-    return json.encode(this.toJson());
-  }
-
   @override
   String toString() {
     return "$name";
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NodeCommand &&
+          runtimeType == other.runtimeType &&
+          name == other.name;
+
+  @override
+  int get hashCode => name.hashCode;
 }
