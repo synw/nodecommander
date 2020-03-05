@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:nodecommander/nodecommander.dart';
 import 'package:wifi/wifi.dart';
 
+import 'commands.dart';
+
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
@@ -23,13 +25,13 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
+  const MyHomePage({Key key, this.title}) : super(key: key);
 
   // This widget is the home page of your application. It is stateful, meaning
   // that it has a State object (defined below) that contains fields that affect
@@ -47,41 +49,23 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  SoldierNode _node;
+  StreamSubscription<int> _sub;
   int _counter = 0;
 
   @override
   void initState() {
     super.initState();
+    _sub = counterController.stream.listen((c) => setState(() => _counter = c));
     initNode();
   }
 
   Future<void> initNode() async {
     final host = await Wifi.ip;
-    final node = SoldierNode(name: "flutter_node_1", host: host, verbose: true);
-    await node.init();
-    node.info();
-    node.commandsIn.listen((NodeCommand cmd) {
-      switch (cmd.name) {
-        case "counter":
-          cmd.payload = <String, dynamic>{"value": _counter};
-          break;
-        default:
-          cmd.error = "Unknown command";
-      }
-      node.respond(cmd);
-    });
-    await Completer<void>().future;
-  }
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+    _node = SoldierNode(
+        commands: commands, name: "flutter_node_1", host: host, verbose: true);
+    await _node.init();
+    _node.info();
   }
 
   @override
@@ -118,21 +102,24 @@ class _MyHomePageState extends State<MyHomePage> {
           // horizontal).
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Text(
+            const Text(
               'You have pushed the button this many times:',
             ),
+            const Padding(padding: EdgeInsets.only(top: 25.0)),
             Text(
               '$_counter',
-              style: Theme.of(context).textTheme.display1,
+              textScaleFactor: 4.0,
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
+  }
+
+  @override
+  void dispose() {
+    _sub.cancel();
+    _node.dispose();
+    super.dispose();
   }
 }
