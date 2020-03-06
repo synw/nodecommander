@@ -44,7 +44,7 @@ class NodeCommand {
   NodeCommand.define({
     @required this.name,
     @required this.executor,
-    @required this.responseProcessor,
+    this.responseProcessor,
     this.arguments = const <dynamic>[],
   })  : this.payload = const <String, dynamic>{},
         this.status = CommandStatus.pending,
@@ -52,6 +52,19 @@ class NodeCommand {
         this.error = null,
         this.from = null,
         this.id = uuid.v4().toString();
+
+  NodeCommand copyWithResponseProcessor(ResponseProcessor _responseProcessor) =>
+      NodeCommand._createWithId(
+          id: id,
+          name: name,
+          executor: executor,
+          responseProcessor: _responseProcessor,
+          arguments: arguments,
+          status: status,
+          from: from,
+          error: error,
+          payload: payload,
+          isExecuted: isExecuted);
 
   NodeCommand copyAndSetExecuted() => NodeCommand._createWithId(
       id: id,
@@ -156,6 +169,8 @@ class NodeCommand {
   final ResponseProcessor responseProcessor;
   final bool isExecuted;
 
+  bool get hasError => error != null;
+
   Future<NodeCommand> execute() async {
     NodeCommand returnCmd;
     try {
@@ -169,7 +184,9 @@ class NodeCommand {
 
   Future<void> processResponse() async {
     try {
-      await responseProcessor(this);
+      if (responseProcessor != null) {
+        await responseProcessor(this);
+      }
     } catch (e) {
       rethrow;
     }

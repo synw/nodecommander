@@ -153,7 +153,7 @@ abstract class BaseNode {
   bool _isCommander;
   final Completer _readyCompleter = Completer<void>();
   final StreamController<NodeCommand> _commandsExecuted =
-      StreamController<NodeCommand>();
+      StreamController<NodeCommand>.broadcast();
   final StreamController<NodeCommand> _commandsResponses =
       StreamController<NodeCommand>.broadcast();
   final StreamController<dynamic> _logs = StreamController<dynamic>.broadcast();
@@ -201,7 +201,8 @@ abstract class BaseNode {
     assert(to != null);
     assert(cmd != null);
     if (verbose) {
-      _.smallArrowOut("Sending command ${cmd.name} to $to");
+      final pl = cmd.payload ?? "";
+      _.smallArrowOut("Sending command ${cmd.name} to $to $pl");
       //cmd.info();
     }
     final response = await _sendCommandRun(cmd, to, "/cmd");
