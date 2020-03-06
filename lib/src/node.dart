@@ -121,6 +121,8 @@ abstract class BaseSoldierNode with BaseNode {
 
   StreamSubscription<NodeCommand> _sub;
 
+  Stream<NodeCommand> get commandsExecuted => _commandsExecuted.stream;
+
   Future<void> respond(NodeCommand cmd) => _sendCommandResponse(cmd);
 
   Future<void> _initSoldierNode(String host) async {

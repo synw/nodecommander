@@ -53,18 +53,6 @@ class NodeCommand {
         this.from = null,
         this.id = uuid.v4().toString();
 
-/*  NodeCommand.fromName({
-    @required this.name,
-    this.arguments = const <dynamic>[],
-  })  : this.payload = const <String, dynamic>{},
-        this.status = CommandStatus.pending,
-        this.isExecuted = false,
-        this.error = null,
-        this.from = null,
-        this.executor = null,
-        this.responseProcessor = null,
-        this.id = uuid.v4().toString();*/
-
   NodeCommand copyAndSetExecuted() => NodeCommand._createWithId(
       id: id,
       name: name,
