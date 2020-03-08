@@ -20,12 +20,15 @@ class SoldierNode extends BaseSoldierNode {
       @required this.commands,
       this.host,
       this.port = 8084,
-      this.verbose = false}) {
+      this.verbose = false})
+      : assert(name != null),
+        assert(commands != null) {
     if (Platform.isAndroid || Platform.isIOS) {
       if (host == null) {
         throw ArgumentError("Please provide a host for the node");
       }
     }
+    commands.addAll(internalCommands);
   }
 
   @override
@@ -53,12 +56,15 @@ class CommanderNode extends BaseCommanderNode {
       @required this.commands,
       this.host,
       this.port = 8084,
-      this.verbose = false}) {
+      this.verbose = false})
+      : assert(name != null),
+        assert(commands != null) {
     if (Platform.isAndroid || Platform.isIOS) {
       if (host == null) {
         throw ArgumentError("Please provide a host for the node");
       }
     }
+    commands.addAll(internalCommands);
   }
 
   @override
@@ -81,6 +87,9 @@ class CommanderNode extends BaseCommanderNode {
 }
 
 abstract class BaseCommanderNode with BaseNode {
+  StreamSubscription<NodeCommand> _sub;
+  bool _listening = false;
+
   List<ConnectedSoldierNode> get soldiers => _soldiers;
 
   Stream<NodeCommand> get commandsResponse => _commandsResponses.stream;
@@ -114,12 +123,25 @@ abstract class BaseCommanderNode with BaseNode {
     }
     return addr;
   }
+
+  void listen(OnCommand onCommandExecuted) {
+    _listening = true;
+    _sub = commandsResponse.listen((NodeCommand cmd) => onCommandExecuted(cmd));
+  }
+
+  void stopListening() {
+    if (_listening) {
+      _sub.cancel();
+    }
+  }
 }
 
 abstract class BaseSoldierNode with BaseNode {
   //Stream<NodeCommand> get commandsIn => _commandsExecuted.stream;
 
   StreamSubscription<NodeCommand> _sub;
+  StreamSubscription<NodeCommand> _sub2;
+  bool _listening = false;
 
   Stream<NodeCommand> get commandsExecuted => _commandsExecuted.stream;
 
@@ -130,9 +152,24 @@ abstract class BaseSoldierNode with BaseNode {
     _sub = _commandsExecuted.stream.listen((c) => respond(c));
   }
 
+  void listen(OnCommand onCommandExecuted) {
+    _listening = true;
+    _sub2 =
+        commandsExecuted.listen((NodeCommand cmd) => onCommandExecuted(cmd));
+  }
+
+  void stopListening() {
+    if (_listening) {
+      _sub2.cancel();
+    }
+  }
+
   @override
   void dispose() {
     _sub.cancel();
+    if (_listening) {
+      _sub2.cancel();
+    }
     super.dispose();
   }
 }
@@ -159,6 +196,9 @@ abstract class BaseNode {
   final StreamController<dynamic> _logs = StreamController<dynamic>.broadcast();
 
   Future get onReady => _readyCompleter.future;
+
+  NodeCommand cmd(String name) =>
+      commands.firstWhere((c) => c.name == name, orElse: () => null);
 
   NodeCommand _fromAuthorizedCommands(NodeCommand _cmd) {
     final isInternal = internalCommands.contains(_cmd);
