@@ -1,3 +1,5 @@
+import 'package:nodecommander/nodecommander.dart';
+
 import '../node.dart';
 import 'state.dart';
 
@@ -33,11 +35,12 @@ void soldiers(CommanderNode node) {
   }
 }
 
-Future<void> discover(CommanderNode node) async {
+Future<List<ConnectedSoldierNode>> discover(CommanderNode node) async {
   await node.discoverNodes();
   await Future<dynamic>.delayed(const Duration(seconds: 2));
-  print("Soldiers: ${node.soldiers}");
+  //print("Soldiers: ${node.soldiers}");
   for (final s in node.soldiers) {
     print("Found soldier ${s.name} at ${s.address}");
   }
+  return node.soldiers;
 }
