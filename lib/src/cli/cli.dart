@@ -2,19 +2,20 @@ import 'dart:async';
 
 import 'package:pedantic/pedantic.dart';
 import 'package:prompts/prompts.dart' as prompts;
+import 'package:nodecommander/nodecommander.dart';
 
 import '../command/model.dart';
 import '../node.dart';
-import 'commands.dart';
 import 'models.dart';
 import 'state.dart';
 
 StreamSubscription<NodeCommand> cmdResponse;
 
 class NodeCommanderCli {
-  NodeCommanderCli(this.node);
+  NodeCommanderCli(this.node, {this.onCommand});
 
   final CommanderNode node;
+  final OnCommand onCommand;
 
   var _promptString = "command";
 
@@ -49,7 +50,9 @@ class NodeCommanderCli {
       }
       StreamSubscription sub;
       sub = node.commandsResponse.listen((_cmd) async {
-        //print("Processing response: ${_cmd.payload}");
+        if (onCommand != null) {
+          onCommand(_cmd);
+        }
         commandOk.complete();
         unawaited(sub.cancel());
       });
