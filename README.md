@@ -64,7 +64,7 @@ Discover soldier nodes on the network with udp broadcast:
    unawaited(node.discoverNodes());
    await Future<dynamic>.delayed(const Duration(seconds: 2));
    for (final s in node.soldiers) {
-     print("Found soldier ${s.name} at ${s.address}");
+     print("Soldier ${s.name} at ${s.address}");
    }
    ```
 
@@ -84,9 +84,8 @@ Listen to command responses from soldiers:
 
    ```dart
    node.commandsResponse.listen((NodeCommand cmd) {
-       print("${cmd.from} has responded: ${cmd.payload}");
-     }
-   });
+      print("${cmd.from} has responded: ${cmd.payload}");
+   }
    ```
 
 This is optional. The command responses are received after the `response_processor` is
