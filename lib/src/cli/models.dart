@@ -44,7 +44,6 @@ class CliNodeCommand {
           cmds.using();
           break;
         case "/u":
-          print("U $args");
           if (args.isNotEmpty) {
             cmds.use(node, args[0]);
           } else {
