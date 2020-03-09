@@ -7,9 +7,7 @@ import 'package:nodecommander/nodecommander.dart';
 import '../command/model.dart';
 import '../node.dart';
 import 'models.dart';
-import 'state.dart';
-
-StreamSubscription<NodeCommand> cmdResponse;
+import 'state.dart' as state;
 
 class NodeCommanderCli {
   NodeCommanderCli(this.node, {this.onCommand});
@@ -39,17 +37,18 @@ class NodeCommanderCli {
       }
       // use
       if (cmd.name == "/u") {
-        _promptString = cmd.args[0];
+        _promptString = state.soldier.name;
       }
       commandOk.complete();
     } else {
       // normal cmd
-      if (soldier == null) {
+      if (state.soldier == null) {
         print("No soldier selected");
         commandOk.complete();
       }
       StreamSubscription sub;
       sub = node.commandsResponse.listen((_cmd) async {
+        // callback
         if (onCommand != null) {
           onCommand(_cmd);
         }
@@ -75,7 +74,7 @@ class NodeCommanderCli {
           print("Sending command ${cmd.name}");
         }
       }
-      await node.sendCommand(cmd, soldier.address);
+      await node.sendCommand(cmd, state.soldier.address);
       //commandOk.complete();
     }
     await commandOk.future;

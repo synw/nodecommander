@@ -7,16 +7,21 @@ class CliNodeCommand {
   factory CliNodeCommand.fromInput(CommanderNode node, String input) {
     assert(node != null);
     assert(input != null);
-    return CliNodeCommand._getCmd(node, input);
+    return CliNodeCommand._getCmdFromInput(node, input);
   }
 
   CliNodeCommand._(this.node, this.name, this.args) : input = null;
 
-  factory CliNodeCommand._getCmd(CommanderNode node, String cmdLine) {
+  factory CliNodeCommand._getCmdFromInput(CommanderNode node, String cmdLine) {
+    final args = <String>[];
     final l = cmdLine.split(" ");
-    final name = l.removeAt(0);
+    var name = cmdLine;
+    if (l.length > 1) {
+      name = l.removeAt(0);
+      args.addAll(l);
+    }
     // get cmd
-    return CliNodeCommand._(node, name, l);
+    return CliNodeCommand._(node, name, args);
   }
 
   final String input;
@@ -39,7 +44,12 @@ class CliNodeCommand {
           cmds.using();
           break;
         case "/u":
-          cmds.use(node, args[0]);
+          print("U $args");
+          if (args.isNotEmpty) {
+            cmds.use(node, args[0]);
+          } else {
+            cmds.use(node);
+          }
           break;
         default:
           return ErrPack<String>.err(Err.error("Command not found"));

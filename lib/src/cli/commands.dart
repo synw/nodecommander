@@ -1,26 +1,36 @@
 import 'package:nodecommander/nodecommander.dart';
 
 import '../node.dart';
-import 'state.dart';
+import 'state.dart' as state;
 
 void using() {
-  if (soldier == null) {
+  if (state.soldier == null) {
     print("No soldier set");
     return;
   }
-  print("Using soldier ${soldier.name}");
+  print("Using soldier ${state.soldier.name}");
 }
 
-void use(CommanderNode node, String soldierName) {
-  if (!node.hasSoldier(soldierName)) {
-    print("Unknown soldier $soldierName. Available soldiers:");
+void use(CommanderNode node, [String soldierName]) {
+  var name = soldierName;
+  if (soldierName == null) {
+    if (node.soldiers.isEmpty) {
+      print("No soldiers connected");
+      return;
+    }
+    //print("SOLDIERS ${node.soldiers}");
+    name = node.soldiers[0].name;
+  }
+  if (!node.hasSoldier(name)) {
+    print("Unknown soldier $name. Available soldiers:");
     soldiers(node);
     return;
   }
-  print("Using soldier $soldierName");
+  print("Using soldier $name");
   for (final _soldier in node.soldiers) {
-    if (_soldier.name == soldierName) {
-      soldier = _soldier;
+    if (_soldier.name == name) {
+      state.soldier = _soldier;
+      return;
     }
   }
 }
