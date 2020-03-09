@@ -77,7 +77,7 @@ Run commands on soldier nodes:
    // send a command
    await node.sendCommand(sayHello, to);
    // or
-   await node.sendCommand(node.cmd("hello"));
+   await node.sendCommand(node.cmd("hello"), to);
    ```
 
 Listen to command responses from soldiers:
