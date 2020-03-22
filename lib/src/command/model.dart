@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'package:meta/meta.dart';
 import 'package:uuid/uuid.dart';
+import 'package:emodebug/emodebug.dart';
+import 'package:err/err.dart';
 
 import 'internal/commands.dart' as icmds;
+
+const _ = EmoDebug();
 
 Uuid uuid = Uuid();
 
@@ -39,12 +43,14 @@ class NodeCommand {
       this.arguments = const <dynamic>[],
       this.status = CommandStatus.pending,
       this.isExecuted = false,
-      this.error});
+      this.error,
+      this.errorProcessor});
 
   NodeCommand.define({
     @required this.name,
     @required this.executor,
     this.responseProcessor,
+    this.errorProcessor,
     this.arguments = const <dynamic>[],
   })  : this.payload = const <String, dynamic>{},
         this.status = CommandStatus.pending,
@@ -59,6 +65,7 @@ class NodeCommand {
           name: name,
           executor: executor,
           responseProcessor: _responseProcessor,
+          errorProcessor: errorProcessor,
           arguments: arguments,
           status: status,
           from: from,
@@ -71,6 +78,7 @@ class NodeCommand {
       name: name,
       executor: executor,
       responseProcessor: responseProcessor,
+      errorProcessor: errorProcessor,
       arguments: arguments,
       status: status,
       from: from,
@@ -85,6 +93,7 @@ class NodeCommand {
           name: name,
           executor: executor,
           responseProcessor: responseProcessor,
+          errorProcessor: errorProcessor,
           arguments: arguments,
           status: cmdStatus,
           from: from,
@@ -99,6 +108,7 @@ class NodeCommand {
           name: name,
           executor: executor,
           responseProcessor: responseProcessor,
+          errorProcessor: errorProcessor,
           arguments: arguments,
           status: cmdStatus,
           from: from,
@@ -112,6 +122,7 @@ class NodeCommand {
           name: name,
           executor: executor,
           responseProcessor: responseProcessor,
+          errorProcessor: errorProcessor,
           arguments: arguments,
           status: _status,
           from: from,
@@ -125,6 +136,7 @@ class NodeCommand {
           name: name,
           executor: executor,
           responseProcessor: responseProcessor,
+          errorProcessor: errorProcessor,
           arguments: _args,
           status: status,
           from: from,
@@ -137,6 +149,7 @@ class NodeCommand {
       name: name,
       executor: executor,
       responseProcessor: responseProcessor,
+      errorProcessor: errorProcessor,
       arguments: arguments,
       status: status,
       from: _from,
@@ -151,6 +164,7 @@ class NodeCommand {
           name: name,
           executor: exec,
           responseProcessor: resp,
+          errorProcessor: errorProcessor,
           arguments: arguments,
           status: status,
           from: from,
@@ -167,6 +181,7 @@ class NodeCommand {
   final CommandStatus status;
   final CommandExecutor executor;
   final ResponseProcessor responseProcessor;
+  final ResponseProcessor errorProcessor;
   final bool isExecuted;
 
   bool get hasError => error != null;
@@ -176,6 +191,9 @@ class NodeCommand {
     try {
       returnCmd = await executor(this);
       //print("EXEC RETURN CMD ${returnCmd.copyAndSetExecuted().toJson()}");
+      if (returnCmd.hasError) {
+        _.error(returnCmd.error, "command execution error");
+      }
     } catch (e) {
       rethrow;
     }
@@ -183,6 +201,13 @@ class NodeCommand {
   }
 
   Future<void> processResponse() async {
+    if (hasError) {
+      _.error(this.error, "command response error");
+      if (errorProcessor != null) {
+        await errorProcessor(this);
+      }
+      return;
+    }
     try {
       if (responseProcessor != null) {
         await responseProcessor(this);
@@ -197,10 +222,14 @@ class NodeCommand {
         id: data["id"].toString(),
         name: data["name"].toString(),
         executor: null,
+        error: null,
         responseProcessor: null,
         from: data["from"].toString());
     if (data.containsKey("error") == true) {
-      c = c.copyWithError(data["error"].toString());
+      final err = data["error"].toString();
+      if (err != "") {
+        c = c.copyWithError(err);
+      }
     }
     if (data.containsKey("arguments") == true) {
       final args = json.decode(data["arguments"].toString()) as List<dynamic>;

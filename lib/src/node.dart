@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:isohttpd/isohttpd.dart';
@@ -42,11 +43,11 @@ class SoldierNode extends BaseSoldierNode {
   @override
   List<NodeCommand> commands;
 
-  Future<void> init([String _host]) async {
-    var _h = _host;
+  Future<void> init({String ip, bool start = true}) async {
+    var _h = ip;
     _h ??= host;
     _h ??= await getHost();
-    await _initSoldierNode(_h);
+    await _initSoldierNode(_h, start: start);
   }
 }
 
@@ -78,15 +79,19 @@ class CommanderNode extends BaseCommanderNode {
   @override
   List<NodeCommand> commands;
 
-  Future<void> init([String _host]) async {
-    var _h = _host;
+  Future<void> init({String ip, bool start = true}) async {
+    var _h = ip;
     _h ??= host;
     _h ??= await getHost();
-    await _initCommanderNode(_h);
+    await _initCommanderNode(_h, start: start);
   }
 }
 
 abstract class BaseCommanderNode with BaseNode {
+  BaseCommanderNode() {
+    _isCommander = true;
+    _isSoldier = false;
+  }
   StreamSubscription<NodeCommand> _sub;
   bool _listening = false;
 
@@ -94,12 +99,15 @@ abstract class BaseCommanderNode with BaseNode {
 
   Stream<NodeCommand> get commandsResponse => _commandsResponses.stream;
 
+  Stream<ConnectedSoldierNode> get soldiersDiscovery =>
+      _soldierDiscovered.stream;
+
   Future<void> discoverNodes() async => _broadcastForDiscovery();
 
   Future<void> sendCommand(NodeCommand cmd, String to) => _sendCommand(cmd, to);
 
-  Future<void> _initCommanderNode(String host) async {
-    await _initNode(host, false, true);
+  Future<void> _initCommanderNode(String host, {@required bool start}) async {
+    await _initNode(host, false, true, start: start);
   }
 
   bool hasSoldier(String name) {
@@ -137,6 +145,10 @@ abstract class BaseCommanderNode with BaseNode {
 }
 
 abstract class BaseSoldierNode with BaseNode {
+  BaseSoldierNode() {
+    _isCommander = false;
+    _isSoldier = true;
+  }
   //Stream<NodeCommand> get commandsIn => _commandsExecuted.stream;
 
   StreamSubscription<NodeCommand> _sub;
@@ -147,8 +159,8 @@ abstract class BaseSoldierNode with BaseNode {
 
   Future<void> respond(NodeCommand cmd) => _sendCommandResponse(cmd);
 
-  Future<void> _initSoldierNode(String host) async {
-    await _initNode(host, true, false);
+  Future<void> _initSoldierNode(String host, {@required bool start}) async {
+    await _initNode(host, true, false, start: start);
     _sub = _commandsExecuted.stream.listen((c) => respond(c));
   }
 
@@ -194,11 +206,22 @@ abstract class BaseNode {
   final StreamController<NodeCommand> _commandsResponses =
       StreamController<NodeCommand>.broadcast();
   final StreamController<dynamic> _logs = StreamController<dynamic>.broadcast();
+  final _soldierDiscovered = StreamController<ConnectedSoldierNode>.broadcast();
+  int _socketPort;
+  bool _isRunning = false;
 
   Future get onReady => _readyCompleter.future;
 
+  bool get isRunning => _isRunning;
+
   NodeCommand cmd(String name) =>
       commands.firstWhere((c) => c.name == name, orElse: () => null);
+
+  void start() => iso.start();
+
+  void stop() => iso.stop();
+
+  void status() => iso.status();
 
   NodeCommand _fromAuthorizedCommands(NodeCommand _cmd) {
     final isInternal = internalCommands.contains(_cmd);
@@ -216,16 +239,20 @@ abstract class BaseNode {
         exec: kc.executor, resp: kc.responseProcessor);
   }
 
-  Future<void> _initNode(String _host, bool isSoldier, bool isCommander) async {
+  Future<void> _initNode(String _host, bool isSoldier, bool isCommander,
+      {@required bool start}) async {
     host = _host;
     _isSoldier = isSoldier;
     _isCommander = isCommander;
+    // socket port
+    _socketPort ??= _randomSocketPort();
     final router = _initRoutes();
     // run isolate
     iso = IsoHttpd(host: host, port: port, router: router);
-    await iso.run();
+    await iso.run(startServer: start);
     _listenToIso();
     await iso.onServerStarted;
+    _isRunning = true;
     await _initForDiscovery();
     if (_isSoldier) {
       await _listenForDiscovery();
@@ -272,14 +299,13 @@ abstract class BaseNode {
   void dispose() {
     _commandsExecuted.close();
     _commandsResponses.close();
+    _soldierDiscovered.close();
+    _socket.close();
     _logs.close();
   }
 
   void info() {
-    var nt = _isSoldier ? "Soldier" : "Commander";
-    if (_isSoldier && _isCommander) {
-      nt = "Mixed";
-    }
+    final nt = _isSoldier ? "Soldier" : "Commander";
     print("\n******************************************");
     print("$nt node running on: $host:$port");
     print("******************************************\n");
@@ -394,17 +420,17 @@ abstract class BaseNode {
     if (verbose) {
       print("Broadcasting to $broadcastAddr: $payload");
     }
-    _socket.send(data, InternetAddress(broadcastAddr), 8889);
+    _socket.send(data, InternetAddress(broadcastAddr), _socketPort);
   }
 
   Future<void> _initForDiscovery() async {
     if (verbose) {
       print("Initializing for discovery on $host");
     }
-    _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 8889)
+    _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, _socketPort)
       ..broadcastEnabled = true;
     if (verbose) {
-      print("Socket is ready at ${_socket.address.host}");
+      print("Socket is ready at ${_socket.address.host}:$_socketPort");
     }
     if (!_socketReady.isCompleted) {
       _socketReady.complete();
@@ -415,7 +441,7 @@ abstract class BaseNode {
     assert(_socket != null);
     await _socketReady.future;
     if (verbose) {
-      print("Listenning on socket ${_socket.address.host}");
+      print("Listenning on socket ${_socket.address.host}:$_socketPort");
     }
     _socket.listen((RawSocketEvent e) async {
       final d = _socket.receive();
@@ -445,5 +471,14 @@ abstract class BaseNode {
       //_cmd.info();
       await _sendCommandResponse(_cmd);
     });
+  }
+
+  int _randomSocketPort() {
+    return 9104;
+    /*
+    const int min = 9100;
+    const int max = 9999;
+    final n = Random().nextInt((max - min).toInt());
+    return min + n;*/
   }
 }
