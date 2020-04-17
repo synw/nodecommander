@@ -302,6 +302,7 @@ abstract class BaseNode {
     _soldierDiscovered.close();
     _socket.close();
     _logs.close();
+    iso.kill();
   }
 
   void info() {
