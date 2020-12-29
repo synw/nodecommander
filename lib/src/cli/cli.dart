@@ -46,7 +46,7 @@ class NodeCommanderCli {
         print("No soldier selected");
         commandOk.complete();
       }
-      StreamSubscription sub;
+      StreamSubscription<NodeCommand> sub;
       sub = node.commandsResponse.listen((_cmd) async {
         // callback
         if (onCommand != null) {

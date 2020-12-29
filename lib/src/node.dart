@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:isohttpd/isohttpd.dart';
@@ -200,7 +199,7 @@ abstract class BaseNode {
   final Dio _dio = Dio(BaseOptions(connectTimeout: 5000, receiveTimeout: 3000));
   bool _isSoldier;
   bool _isCommander;
-  final Completer _readyCompleter = Completer<void>();
+  final _readyCompleter = Completer<void>();
   final StreamController<NodeCommand> _commandsExecuted =
       StreamController<NodeCommand>.broadcast();
   final StreamController<NodeCommand> _commandsResponses =
@@ -210,7 +209,7 @@ abstract class BaseNode {
   int _socketPort;
   bool _isRunning = false;
 
-  Future get onReady => _readyCompleter.future;
+  Future<dynamic> get onReady => _readyCompleter.future;
 
   bool get isRunning => _isRunning;
 
@@ -235,8 +234,8 @@ abstract class BaseNode {
       return null;
     }
     final kc = knownCmds[0];
-    return _cmd.copyWithExecMethods(
-        exec: kc.executor, resp: kc.responseProcessor);
+    var c = _cmd.copyWithPrependedArguments(kc.arguments);
+    return c.copyWithExecMethods(exec: kc.executor, resp: kc.responseProcessor);
   }
 
   Future<void> _initNode(String _host, bool isSoldier, bool isCommander,
@@ -334,8 +333,10 @@ abstract class BaseNode {
       if (data is NodeCommand) {
         // verify command
         final cmd = _fromAuthorizedCommands(data);
+        //print("Executing $cmd");
+        //cmd.info();
         if (cmd == null) {
-          throw "Unauthorized command";
+          throw Exception("Unauthorized command");
         }
 
         if (!cmd.isExecuted) {

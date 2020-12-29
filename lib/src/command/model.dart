@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:meta/meta.dart';
 import 'package:uuid/uuid.dart';
 import 'package:emodebug/emodebug.dart';
-import 'package:err/err.dart';
 
 import 'internal/commands.dart' as icmds;
 
@@ -137,7 +136,21 @@ class NodeCommand {
           executor: executor,
           responseProcessor: responseProcessor,
           errorProcessor: errorProcessor,
-          arguments: _args,
+          arguments: <dynamic>[...arguments, ..._args],
+          status: status,
+          from: from,
+          error: error,
+          payload: payload,
+          isExecuted: isExecuted);
+
+  NodeCommand copyWithPrependedArguments(List<dynamic> _args) =>
+      NodeCommand._createWithId(
+          id: id,
+          name: name,
+          executor: executor,
+          responseProcessor: responseProcessor,
+          errorProcessor: errorProcessor,
+          arguments: <dynamic>[..._args, ...arguments],
           status: status,
           from: from,
           error: error,
