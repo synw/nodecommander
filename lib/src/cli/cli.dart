@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:pedantic/pedantic.dart';
 import 'package:prompts/prompts.dart' as prompts;
-import 'package:nodecommander/nodecommander.dart';
 
 import '../command/model.dart';
 import '../node.dart';
+import '../types.dart';
 import 'models.dart';
 import 'state.dart' as state;
 

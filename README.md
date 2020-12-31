@@ -4,15 +4,20 @@
 
 ## Usage
 
+Generate a key: `dart bin/main.dart`
+
 ### Create some commands
 
    ```dart
    import 'package:nodecommander/nodecommander.dart';
 
+   const key = "7x70J-5n0AZptWlBLVMfknlRiOtALH-6dUT16tfCHCA=";
+
    final List<NodeCommand> commands = <NodeCommand>[sayHello];
 
    final NodeCommand sayHello = NodeCommand.define(
       name: "hello",
+      key: key,
       /// The code executed on the soldier
       executor: (cmd) async {
         print("Saying hello to ${cmd.from}");
@@ -33,7 +38,10 @@
    
    Future<void> main() async {
      final node = SoldierNode(
-         name: "command_line_node_1", commands: cmds.commands, verbose: true);
+         name: "command_line_node_1", 
+         key: key, 
+         commands: cmds.commands, 
+         verbose: true);
      // initialize the node
      await node.init();
      // print some info about the node
@@ -49,7 +57,11 @@ Declare and initialize the node:
 
    ```dart
    final node = CommanderNode(
-       name: "commander", commands: cmds.commands, port: 8085, verbose: true);
+       name: "commander",
+       key: key, 
+       commands: cmds.commands, 
+       port: 8085, 
+       verbose: true);
    // initialize the node
    await node.init();   
    // print some info about the node
@@ -90,3 +102,21 @@ Listen to command responses from soldiers:
 
 This is optional. The command responses are received after the `response_processor` is
 run if present
+
+## Create a cli with custom commands
+
+To run the cli:
+
+```dart
+import 'package:nodecommander/nodecommander.dart';
+
+void main() {
+  final node = CommanderNode(
+      key: key,
+      name: "cli",
+      port: 8185,
+      commands: <NodeCommand>[sayHello],
+      verbose: true);
+  NodeCommanderCli(node).run();
+}
+```

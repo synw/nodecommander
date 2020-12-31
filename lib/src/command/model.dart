@@ -38,6 +38,7 @@ class NodeCommand {
       @required this.executor,
       @required this.responseProcessor,
       @required this.from,
+      this.token,
       this.payload = const <String, dynamic>{},
       this.arguments = const <dynamic>[],
       this.status = CommandStatus.pending,
@@ -48,6 +49,7 @@ class NodeCommand {
   NodeCommand.define({
     @required this.name,
     @required this.executor,
+    this.token,
     this.responseProcessor,
     this.errorProcessor,
     this.arguments = const <dynamic>[],
@@ -58,10 +60,25 @@ class NodeCommand {
         this.from = null,
         this.id = uuid.v4().toString();
 
+  NodeCommand copyWithToken(String _token) => NodeCommand._createWithId(
+      id: id,
+      name: name,
+      token: _token,
+      executor: executor,
+      responseProcessor: responseProcessor,
+      errorProcessor: errorProcessor,
+      arguments: arguments,
+      status: status,
+      from: from,
+      error: error,
+      payload: payload,
+      isExecuted: isExecuted);
+
   NodeCommand copyWithResponseProcessor(ResponseProcessor _responseProcessor) =>
       NodeCommand._createWithId(
           id: id,
           name: name,
+          token: token,
           executor: executor,
           responseProcessor: _responseProcessor,
           errorProcessor: errorProcessor,
@@ -75,6 +92,7 @@ class NodeCommand {
   NodeCommand copyAndSetExecuted() => NodeCommand._createWithId(
       id: id,
       name: name,
+      token: token,
       executor: executor,
       responseProcessor: responseProcessor,
       errorProcessor: errorProcessor,
@@ -90,6 +108,7 @@ class NodeCommand {
       NodeCommand._createWithId(
           id: id,
           name: name,
+          token: token,
           executor: executor,
           responseProcessor: responseProcessor,
           errorProcessor: errorProcessor,
@@ -105,6 +124,7 @@ class NodeCommand {
       NodeCommand._createWithId(
           id: id,
           name: name,
+          token: token,
           executor: executor,
           responseProcessor: responseProcessor,
           errorProcessor: errorProcessor,
@@ -119,6 +139,7 @@ class NodeCommand {
       NodeCommand._createWithId(
           id: id,
           name: name,
+          token: token,
           executor: executor,
           responseProcessor: responseProcessor,
           errorProcessor: errorProcessor,
@@ -133,6 +154,7 @@ class NodeCommand {
       NodeCommand._createWithId(
           id: id,
           name: name,
+          token: token,
           executor: executor,
           responseProcessor: responseProcessor,
           errorProcessor: errorProcessor,
@@ -147,6 +169,7 @@ class NodeCommand {
       NodeCommand._createWithId(
           id: id,
           name: name,
+          token: token,
           executor: executor,
           responseProcessor: responseProcessor,
           errorProcessor: errorProcessor,
@@ -160,6 +183,7 @@ class NodeCommand {
   NodeCommand copyWithFrom(String _from) => NodeCommand._createWithId(
       id: id,
       name: name,
+      token: token,
       executor: executor,
       responseProcessor: responseProcessor,
       errorProcessor: errorProcessor,
@@ -175,6 +199,7 @@ class NodeCommand {
       NodeCommand._createWithId(
           id: id,
           name: name,
+          token: token,
           executor: exec,
           responseProcessor: resp,
           errorProcessor: errorProcessor,
@@ -196,6 +221,7 @@ class NodeCommand {
   final ResponseProcessor responseProcessor;
   final ResponseProcessor errorProcessor;
   final bool isExecuted;
+  final String token;
 
   bool get hasError => error != null;
 
@@ -234,6 +260,7 @@ class NodeCommand {
     var c = NodeCommand._createWithId(
         id: data["id"].toString(),
         name: data["name"].toString(),
+        token: data["token"].toString(),
         executor: null,
         error: null,
         responseProcessor: null,
@@ -262,6 +289,7 @@ class NodeCommand {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{
       "id": id,
+      "token": token,
       "name": name,
       "from": from,
       "arguments": (arguments == null) ? <dynamic>[] : json.encode(arguments),

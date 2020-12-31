@@ -4,10 +4,15 @@ import 'package:nodecommander/nodecommander.dart';
 import 'package:pedantic/pedantic.dart';
 
 import 'commands.dart';
+import 'conf.dart';
 
 Future<void> main() async {
   final node = CommanderNode(
-      name: "commander", commands: commands, port: 8085, verbose: true);
+      key: key,
+      name: "commander",
+      commands: commands,
+      port: 8085,
+      verbose: true);
   await node.init();
   node.commandsResponse.listen((NodeCommand cmd) {
     switch (cmd.name) {

@@ -6,6 +6,7 @@ environment:
   sdk: ">=2.2.2 <3.0.0"
 
 dependencies:
+  corsac_jwt: ^0.4.0
   dio: ^3.0.9
   emodebug: ^0.5.0
   err: ^1.0.0

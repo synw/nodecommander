@@ -11,6 +11,7 @@ import 'package:nodecommander/nodecommander.dart';
 import 'command/model.dart';
 import 'desktop/host.dart';
 import 'http_handlers.dart';
+import 'tokens.dart';
 
 const _ = EmoDebug();
 
@@ -18,6 +19,7 @@ class SoldierNode extends BaseSoldierNode {
   SoldierNode(
       {@required this.name,
       @required this.commands,
+      @required this.key,
       this.host,
       this.port = 8084,
       this.verbose = false})
@@ -39,6 +41,8 @@ class SoldierNode extends BaseSoldierNode {
   int port;
   @override
   bool verbose;
+  @override
+  String key;
   @override
   List<NodeCommand> commands;
 
@@ -54,6 +58,7 @@ class CommanderNode extends BaseCommanderNode {
   CommanderNode(
       {@required this.name,
       @required this.commands,
+      @required this.key,
       this.host,
       this.port = 8084,
       this.verbose = false})
@@ -75,6 +80,8 @@ class CommanderNode extends BaseCommanderNode {
   int port;
   @override
   bool verbose;
+  @override
+  String key;
   @override
   List<NodeCommand> commands;
 
@@ -191,6 +198,7 @@ abstract class BaseNode {
   int port;
   IsoHttpd iso;
   List<NodeCommand> commands;
+  String key;
   bool verbose;
 
   RawDatagramSocket _socket;
@@ -208,6 +216,8 @@ abstract class BaseNode {
   final _soldierDiscovered = StreamController<ConnectedSoldierNode>.broadcast();
   int _socketPort;
   bool _isRunning = false;
+  String _token;
+  Tokens _tokensManager;
 
   Future<dynamic> get onReady => _readyCompleter.future;
 
@@ -259,6 +269,8 @@ abstract class BaseNode {
     if (verbose) {
       _.ok("Node is ready");
     }
+    _tokensManager = Tokens(key: key);
+    _token = _tokensManager.encode();
     _readyCompleter.complete();
   }
 
@@ -271,7 +283,8 @@ abstract class BaseNode {
       _.smallArrowOut("Sending command ${cmd.name} to $to $pl");
       //cmd.info();
     }
-    final response = await _sendCommandRun(cmd, to, "/cmd");
+    final response =
+        await _sendCommandRun(cmd.copyWithToken(_token), to, "/cmd");
     if (response == null || response.statusCode != HttpStatus.ok) {
       final code = response?.statusCode ?? "no response";
       _logs.sink.add("Error sending the command: $code");
@@ -288,7 +301,8 @@ abstract class BaseNode {
       _.smallArrowOut("Sending command response ${_cmd.name} to ${_cmd.from}");
       //cmd.info();
     }
-    final response = await _sendCommandRun(_cmd, _cmd.from, "/cmd/response");
+    final response = await _sendCommandRun(
+        _cmd.copyWithToken(_token), _cmd.from, "/cmd/response");
     if (response == null || response.statusCode != HttpStatus.ok) {
       final code = response?.statusCode ?? "no response";
       _logs.sink.add("Error sending the command response: $code");
@@ -351,6 +365,14 @@ abstract class BaseNode {
               _.arrowIn("Command ${cmd.name} received from ${cmd.from}");
               //cmd.info();
             }
+            // verify
+            final isValid = _tokensManager.verify(cmd.token);
+            if (!isValid) {
+              _.warning("Invalid command signature for");
+              cmd.info();
+              return;
+            }
+            // execute
             final _cmd = await cmd.execute();
             _commandsExecuted.sink.add(_cmd);
           }
@@ -384,14 +406,14 @@ abstract class BaseNode {
     });
   }
 
-  Future<Response> _sendCommandRun(
+  Future<Response<dynamic>> _sendCommandRun(
       NodeCommand cmd, String to, String endPoint) async {
     assert(cmd != null);
     assert(to != null);
     assert(endPoint != null);
     final _cmd = cmd.copyWithFrom("$host:$port");
     final uri = "http://$to$endPoint";
-    Response response;
+    Response<dynamic> response;
     try {
       final dynamic data = _cmd.toJson();
       //print("URI $uri / DATA: $data");
@@ -414,7 +436,7 @@ abstract class BaseNode {
     assert(host != null);
     assert(_isCommander);
     await _socketReady.future;
-    final payload = '{"host":"$host", "port": "$port"}';
+    final payload = '{"host":"$host", "port": "$port", "token": "$_token"}';
     final data = utf8.encode(payload);
     String broadcastAddr;
     final l = host.split(".");
@@ -451,12 +473,20 @@ abstract class BaseNode {
         return;
       }
       final message = utf8.decode(d.data).trim();
-      final dynamic data = json.decode(message);
+      final data = json.decode(message) as Map<String, dynamic>;
       //print('Datagram from ${d.address.address}:${d.port}: ${message}');
       if (verbose) {
         print(
             "Received connection request from commander node ${data["host"]}");
       }
+      // verify
+      final t = data["token"].toString();
+      final isValid = _tokensManager.verify(t);
+      if (!isValid) {
+        _.warning("Invalid command signature for $data");
+        return;
+      }
+      // respond
       final payload = <String, String>{
         "host": "$host",
         "port": "$port",

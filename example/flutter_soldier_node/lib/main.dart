@@ -5,6 +5,8 @@ import 'package:wifi/wifi.dart';
 
 import 'commands.dart';
 
+const key = "7x70J-9n0AZptWlBLVMfknlRiOtALH-6dUT16tfCHCA=";
+
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
@@ -63,7 +65,11 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> initNode() async {
     final host = await Wifi.ip;
     _node = SoldierNode(
-        commands: commands, name: "flutter_node_1", host: host, verbose: true);
+        key: key,
+        commands: commands,
+        name: "flutter_node_1",
+        host: host,
+        verbose: true);
     await _node.init();
     _node.info();
   }
