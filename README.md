@@ -1,5 +1,7 @@
 # Node Commander
 
+[![pub package](https://img.shields.io/pub/v/nodecommander.svg)](https://pub.dartlang.org/packages/nodecommander)
+
  Network nodes communication in Dart. Send commands to nodes and get the responses. Powered by [Isohttpd](https://github.com/synw/isohttpd)
 
 ## Usage
